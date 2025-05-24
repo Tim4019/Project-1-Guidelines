@@ -63,9 +63,10 @@ body {
   position: absolute;
   width: 40px;
   height: 40px;
-  background: url('https://i.imgur.com/p1wAfYk.png') center/cover no-repeat;
+  background: url('https://i.imgur.com/p1wAfYk.png') center/cover no-repeat, red;
   top: 0;
   border-radius: 4px;
+  border: 2px solid lime
 }
 
 .bullet {
@@ -73,6 +74,7 @@ body {
   width: 6px;
   height: 12px;
   background: yellow;
+  border: 2px solid red 
 }
 
 #scoreBoard {
@@ -81,3 +83,4 @@ body {
   left: 10px;
   font-size: 1.2em;
 }
+
