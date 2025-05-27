@@ -1,193 +1,178 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const startScreen = document.getElementById("startScreen");
-  const startBtn = document.getElementById("startBtn");
-  const restartBtn = document.getElementById("restartBtn");
-  const gameArea = document.getElementById("characterScreen");
+  /* ---------- DOM ELEMENTS ---------- */
+  const startScreen   = document.getElementById("startScreen");
+  const startBtn      = document.getElementById("startBtn");
+  const restartBtn    = document.getElementById("restartBtn");      // still there if you need it
+  const gameArea      = document.getElementById("characterScreen");
 
-  let player;
-  let level = 1;
-  let score = 0;
-  let scoreBoard;
+  // NEW: game-over overlay elements
+  const gameOverScreen = document.getElementById("gameOverScreen");
+  const finalScoreEl   = document.getElementById("finalScore");
+  const playAgainBtn   = document.getElementById("playAgainBtn");
+
+  /* ---------- GAME STATE ---------- */
+  let player, scoreBoard;
+  let level  = 1;
+  let score  = 0;
+  let lives  = 3;
+  let keys   = {};
+  let canShoot      = true;
   let isGameRunning = false;
-  let keys = {};
 
+  /* ---------- AUDIO ---------- */
+  const shootSound   = new Audio("sounds/shoot.mp3");
+  const enemyDownSfx = new Audio("sounds/enemy-down.mp3");
+  const lifeLostSfx  = new Audio("sounds/life-lost.mp3");
+  const gameOverSfx  = new Audio("sounds/game-over.mp3");
+
+  const play = sfx => { sfx.currentTime = 0; sfx.play(); };
+
+  /* ---------- CREATE ELEMENTS ---------- */
   function createPlayer() {
     player = document.createElement("div");
     player.id = "player";
+    player.style.left   = `${(gameArea.clientWidth - 40) / 2}px`;
+    player.style.bottom = "20px";
     gameArea.appendChild(player);
   }
 
   function createScoreBoard() {
     scoreBoard = document.createElement("div");
     scoreBoard.id = "scoreBoard";
-    scoreBoard.innerHTML = `Kills: <span id="score">0</span> | Level: <span id="lvl">1</span>`;
+    scoreBoard.innerHTML = `
+      Kills: <span id="score">0</span> |
+      Level: <span id="lvl">1</span> |
+      Lives: <span id="lives">❤️❤️❤️</span>
+    `;
     gameArea.appendChild(scoreBoard);
   }
 
+  /* ---------- UPDATE FUNCTIONS ---------- */
   function updateScore() {
     document.getElementById("score").innerText = score;
-  
-    if (score > 0 && score % 10 === 0) {
-      level += 1;
-      console.log("Level up! Level:", level);
-    }
-  
+    if (score > 0 && score % 10 === 0) level++;
     document.getElementById("lvl").innerText = level;
-  }  
+  }
 
+  function updateLives() {
+    document.getElementById("lives").innerText = "❤️".repeat(lives);
+  }
+
+  /* ---------- ENEMIES ---------- */
   function spawnEnemy() {
     if (!isGameRunning) return;
-  
+
     const enemy = document.createElement("div");
     enemy.classList.add("enemy");
     enemy.style.left = `${Math.floor(Math.random() * 560)}px`;
-    enemy.style.top = "0px";
+    enemy.style.top  = "0px";
     gameArea.appendChild(enemy);
-  
-    console.log(`Enemy spawned at level ${level}`);
-  
-    const speed = 3 + level; // speed increases each level
-    let angle = 0;
-  
-    let enemyInterval = setInterval(() => {
-      if (!isGameRunning) {
-        enemy.remove();
-        clearInterval(enemyInterval);
-        return;
+
+    const speed = 3 + level;
+    let angle   = 0;
+
+    const enemyInterval = setInterval(() => {
+      if (!isGameRunning) { enemy.remove(); clearInterval(enemyInterval); return; }
+
+      const y = parseInt(enemy.style.top);
+      const x = parseInt(enemy.style.left);
+
+      // movement pattern by level (when enemies aim you); 
+      if (level === 2)      { angle += 0.1; enemy.style.left = `${x + Math.sin(angle) * 5}px`; } // This makes the enemy move in a zigzag pattern as it falls down.
+      else if (level === 3) { const dx = player.offsetLeft - x; enemy.style.left = `${x + Math.sign(dx) * 2}px`; }
+      else if (level >= 4)  { angle += 0.2; enemy.style.left = `${x + Math.sin(angle) * 6}px`; }
+
+      enemy.style.top = `${y + speed}px`;
+
+      // off-screen
+      if (y > gameArea.clientHeight) {
+        enemy.remove(); clearInterval(enemyInterval); // means if the enemy has moved below the visible game area, to stop movement.
       }
-  
-      let currentTop = parseInt(enemy.style.top);
-      let currentLeft = parseInt(enemy.style.left);
-  
-      // Level-specific behavior:
-      if (level === 2) {
-        // Zigzag
-        angle += 0.1;
-        enemy.style.left = `${currentLeft + Math.sin(angle) * 5}px`;
-      } else if (level === 3) {
-        // Homing
-        if (player) {
-          const dx = player.offsetLeft - currentLeft;
-          enemy.style.left = `${currentLeft + Math.sign(dx) * 2}px`;
-        }
-      } else if (level >= 4) {
-        // Zigzag + speed boost
-        angle += 0.2;
-        enemy.style.left = `${currentLeft + Math.sin(angle) * 6}px`;
-      }
-  
-      // Always move downward
-      enemy.style.top = `${currentTop + speed}px`;
-  
-      // Off-screen or collision
-      if (currentTop > 400) {
-        enemy.remove();
-        clearInterval(enemyInterval);
-      }
-  
+
+      // collision with player
       if (player && isColliding(player, enemy)) {
-        endGame();
+        lives--; play(lifeLostSfx); updateLives();
+        enemy.remove(); clearInterval(enemyInterval);
+        if (lives <= 0) endGame();
       }
     }, 50);
-  
-    // Spawn next enemy after delay
+
     setTimeout(spawnEnemy, Math.max(1000 - level * 100, 300));
   }
-  
 
+  /* ---------- SHOOT ---------- */
   function shoot() {
+    if (!canShoot || !isGameRunning) return;
+    canShoot = false; setTimeout(() => (canShoot = true), 300);
+
+    play(shootSound);
+
     const bullet = document.createElement("div");
     bullet.classList.add("bullet");
     bullet.style.left = `${player.offsetLeft + 17}px`;
-    bullet.style.top = `${player.offsetTop}px`;
+    bullet.style.top  = `${player.offsetTop}px`;
     gameArea.appendChild(bullet);
 
     const interval = setInterval(() => {
       bullet.style.top = `${bullet.offsetTop - 10}px`;
-    
-      if (bullet.offsetTop < 0) {
-        bullet.remove();
-        clearInterval(interval);
-        return;
-      }
-    
-      const enemies = document.querySelectorAll(".enemy");
-      enemies.forEach((enemy) => {
+      if (bullet.offsetTop < 0) { bullet.remove(); clearInterval(interval); return; }
+
+      document.querySelectorAll(".enemy").forEach(enemy => {
         if (isColliding(bullet, enemy)) {
-          console.log("Collision detected!"); // ADD THIS
-          bullet.remove();
-          enemy.remove();
-          score += 1;
-          console.log("Score is now:", score); // ADD THIS
-          updateScore();
-          clearInterval(interval);
+          play(enemyDownSfx);
+          bullet.remove(); enemy.remove(); clearInterval(interval);
+          score++; updateScore();
         }
       });
-    }, 30);       
+    }, 30);
   }
 
-  function isColliding(a, b) {
-    const rect1 = a.getBoundingClientRect();
-    const rect2 = b.getBoundingClientRect();
-    console.log("Checking collision:", rect1, rect2); // ADD THIS
-  
-    return !(
-      rect1.top > rect2.bottom ||
-      rect1.bottom < rect2.top ||
-      rect1.right < rect2.left ||
-      rect1.left > rect2.right
-    );
-  }   
+  /* ---------- UTIL ---------- */
+  const isColliding = (a, b) => {
+    const r1 = a.getBoundingClientRect();
+    const r2 = b.getBoundingClientRect();
+    return !(r1.top > r2.bottom || r1.bottom < r2.top ||
+             r1.right < r2.left || r1.left > r2.right);
+  };
 
+  /* ---------- GAME LOOP ---------- */
   function gameLoop() {
     if (!isGameRunning) return;
-
-    if (keys["ArrowLeft"] && player.offsetLeft > 0) {
-      player.style.left = `${player.offsetLeft - 5}px`;
-    }
-    if (keys["ArrowRight"] && player.offsetLeft < gameArea.clientWidth - 40) {
-      player.style.left = `${player.offsetLeft + 5}px`;
-    }
-
+    if (keys["ArrowLeft"]  && player.offsetLeft > 0)                         player.style.left = `${player.offsetLeft - 5}px`;
+    if (keys["ArrowRight"] && player.offsetLeft < gameArea.clientWidth - 40) player.style.left = `${player.offsetLeft + 5}px`;
     requestAnimationFrame(gameLoop);
   }
 
+ //------- FLOW ----//
   function startGame() {
     isGameRunning = true;
-    startScreen.style.display = "none";
-    createPlayer();
-    createScoreBoard();
-    spawnEnemy(); 
-    requestAnimationFrame(gameLoop);
+    startScreen.style.display   = "none";
+    gameOverScreen.style.display = "none";     // hide overlay if it was open
+    level = 1; score = 0; lives = 3; keys = {};
+    gameArea.innerHTML = "";
+    createPlayer(); createScoreBoard();
+    updateScore();  updateLives();
+    spawnEnemy(); requestAnimationFrame(gameLoop);
   }
 
   function endGame() {
     isGameRunning = false;
+    play(gameOverSfx);
+
+    // clear entities
     document.querySelectorAll(".enemy, .bullet").forEach(el => el.remove());
-    alert("You were eaten! Final kill count: " + score);
-    restartBtn.style.display = "inline-block";
+
+    // show overlay
+    finalScoreEl.textContent = `You scored ${score} kills`;
+    gameOverScreen.style.display = "flex";
   }
 
-  function restartGame() {
-    gameArea.innerHTML = "";
-    score = 0;
-    keys = {};
-    isGameRunning = true;
-    createPlayer();
-    createScoreBoard();
-    updateScore();
-    restartBtn.style.display = "none";
-    spawnEnemy(); 
-    requestAnimationFrame(gameLoop);
-  }
+  /* ---------- CONTROLS ---------- */
+  startBtn  .addEventListener("click", startGame);
+  restartBtn.addEventListener("click", () => { restartBtn.style.display = "none"; startGame(); });
 
-  startBtn.addEventListener("click", startGame);
-  restartBtn.addEventListener("click", restartGame);
-  document.addEventListener("keydown", (e) => {
-    keys[e.key] = true;
-    if (e.key === " ") shoot();
-  });
-  document.addEventListener("keyup", (e) => {
-    keys[e.key] = false;
-  });
+  playAgainBtn.addEventListener("click", startGame);  // from overlay
+
+  document.addEventListener("keydown", e => { keys[e.key] = true; if (e.key === " ") shoot(); });
+  document.addEventListener("keyup"  , e => { keys[e.key] = false; });
 });
