@@ -18,16 +18,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let isMuted = false;
 
   //---------- AUDIO ----------//
-  const bgMusic    = new Audio("./sounds/bgMusic.mp3");
-  const gunShot = new Audio("sounds/gunShot.mp3");
-  const explosion  = new Audio("./sounds/explosion.mp3");
-  const heartBeat  = new Audio("./sounds/heartBeat.mp3");
+  const bgMusic = new Audio("./sounds/bgMusic.mp3");
+  const gunShot = new Audio("./sounds/gunShot.mp3");
+  const explosion = new Audio("./sounds/explosion.mp3");
+  const heartBeat = new Audio("./sounds/heartBeat.mp3");
   const failBuzzer = new Audio("./sounds/failBuzzer.mp3");
-  const gunShot    = new Audio("../sounds/gunShot.mp3");
-  const explosion  = new Audio("sounds./explosion.mp3");
-  const heartBeat  = new Audio("sounds./heartBeat.mp3");
-  const failBuzzer = new Audio("sounds./failBuzzer.mp3");
-
+  
   bgMusic.loop = true;
   bgMusic.volume = 0.5;
 
