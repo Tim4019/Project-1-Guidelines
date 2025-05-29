@@ -44,7 +44,7 @@ body {
   height: 400px;
   border: 2px solid #fff;
   margin: 60px auto;
-  background: black center/cover no-repeat;
+  background: url('https://i.imgur.com/zjO6tYz.jpg') center/cover no-repeat;
   overflow: hidden;
 }
 
@@ -63,7 +63,7 @@ body {
   position: absolute;
   width: 40px;
   height: 40px;
-  background: center/cover no-repeat, red;
+  background: url('https://i.imgur.com/p1wAfYk.png') center/cover no-repeat, red;
   top: 0;
   border-radius: 4px;
   border: 2px solid lime
