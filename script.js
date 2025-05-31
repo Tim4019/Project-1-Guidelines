@@ -1,4 +1,6 @@
+// Wait for the HTML content to fully load before running the game logic
 document.addEventListener("DOMContentLoaded", () => {
+  //----- DOM Elements -----
   const startScreen = document.getElementById("startScreen");
   const startBtn = document.getElementById("startBtn");
   const restartBtn = document.getElementById("restartBtn");
@@ -8,22 +10,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const playAgainBtn = document.getElementById("playAgainBtn");
   const muteBtn = document.getElementById("muteBtn");
 
+  //----- Game State Variables -----
   let player, scoreBoard;
   let level = 1;
   let score = 0;
   let lives = 3;
-  let keys = {};
-  let canShoot = true;
-  let isGameRunning = false;
-  let isMuted = false;
+  let keys = {};             // Tracks keys being pressed
+  let canShoot = true;       // Controls shooting rate
+  let isGameRunning = false; // Game running flag
+  let isMuted = false;       // Sound mute toggle
 
-  //---------- AUDIO ----------//
+  //----- Audio Setup -----
   const bgMusic = new Audio("./sounds/bgMusic.mp3");
   const gunShot = new Audio("./sounds/gunShot.mp3");
   const explosion = new Audio("./sounds/explosion.mp3");
   const heartBeat = new Audio("./sounds/heartBeat.mp3");
   const failBuzzer = new Audio("./sounds/failBuzzer.mp3");
 
+  // Set looping and volume for audio
   bgMusic.loop = true;
   bgMusic.volume = 0.1;
   gunShot.volume = 0.1;
@@ -31,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   heartBeat.volume = 0.1;
   failBuzzer.volume = 0.1;
 
+  // Function to play a sound if not muted
   const play = (sound) => {
     if (!isMuted) {
       sound.currentTime = 0;
@@ -38,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  //---------- MUTE TOGGLE ---------//
+  //----- Mute Button Toggle -----
   muteBtn.addEventListener("click", () => {
     isMuted = !isMuted;
     [bgMusic, gunShot, explosion, heartBeat, failBuzzer].forEach(
@@ -47,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     muteBtn.textContent = isMuted ? "🔇" : "🔊";
   });
 
-  //--------- CREATE ELEMENTS ---------//
+  //----- Player & UI Creation -----
   function createPlayer() {
     player = document.createElement("div");
     player.id = "player";
@@ -68,28 +73,30 @@ document.addEventListener("DOMContentLoaded", () => {
     gameArea.appendChild(scoreBoard);
   }
 
+  // Update score and level display
   function updateScore() {
     document.getElementById("score").innerText = score;
-    if (score > 0 && score % 10 === 0) level++;
+    if (score > 0 && score % 10 === 0) level++; // Increase level every 10 kills
     document.getElementById("lvl").innerText = level;
   }
 
+  // Update lives display
   function updateLives() {
     document.getElementById("lives").innerText = "❤".repeat(lives);
   }
 
-  //--------- ENEMIES ---------//
+  //----- Enemy Spawning & Movement -----
   function spawnEnemy() {
     if (!isGameRunning) return;
 
     const enemy = document.createElement("div");
     enemy.classList.add("enemy");
-    enemy.style.left = `${Math.floor(Math.random() * 1180)}px`;
+    enemy.style.left = `${Math.floor(Math.random() * 1180)}px`; // Random x position
     enemy.style.top = "0px";
     gameArea.appendChild(enemy);
 
-    const speed = 3 + level;
-    let angle = 0;
+    const speed = 3 + level; // Increase speed with level
+    let angle = 0; // For sine-wave movement
 
     const enemyInterval = setInterval(() => {
       if (!isGameRunning) {
@@ -101,27 +108,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const y = parseInt(enemy.style.top);
       const x = parseInt(enemy.style.left);
 
-      // movement pattern by level
+      // Movement patterns based on level(zig zag and homing every time you get to the next wave)
       if (level === 2) {
         angle += 0.1;
-        enemy.style.left = `${x + Math.sin(angle) * 5}px`;
+        enemy.style.left = `${x + Math.sin(angle) * 5}px`; // Sine-wave movement
       } else if (level === 3) {
         const dx = player.offsetLeft - x;
-        enemy.style.left = `${x + Math.sign(dx) * 2}px`;
+        enemy.style.left = `${x + Math.sign(dx) * 2}px`; // Homing movement
       } else if (level >= 4) {
         angle += 0.2;
         enemy.style.left = `${x + Math.sin(angle) * 6}px`;
       }
 
-      enemy.style.top = `${y + speed}px`;
+      enemy.style.top = `${y + speed}px`; // Fall speed
 
-      // off-screen
+      // Remove enemy if off-screen
       if (y > gameArea.clientHeight) {
         enemy.remove();
         clearInterval(enemyInterval);
       }
 
-      // collision with player
+      // Collision with player
       if (player && isColliding(player, enemy)) {
         lives--;
         if (lives < 3) play(heartBeat);
@@ -132,31 +139,35 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 50);
 
+    // Recursive call to keep spawning enemies with delay
     setTimeout(spawnEnemy, Math.max(1000 - level * 100, 0));
   }
 
-  //--------- SHOOT ----------//
+  //----- Shooting Logic -----
   function shoot() {
     if (!canShoot || !isGameRunning) return;
     canShoot = false;
-    setTimeout(() => (canShoot = true), 300);
+    setTimeout(() => (canShoot = true), 300); // Shooting cooldown
 
     play(gunShot);
 
     const bullet = document.createElement("div");
     bullet.classList.add("bullet");
-    bullet.style.left = `${player.offsetLeft + 27}px`;
+    bullet.style.left = `${player.offsetLeft + 27}px`; // Bullet position centered
     bullet.style.top = `${player.offsetTop}px`;
     gameArea.appendChild(bullet);
 
     const interval = setInterval(() => {
-      bullet.style.top = `${bullet.offsetTop - 10}px`;
+      bullet.style.top = `${bullet.offsetTop - 10}px`; // Move bullet up
+
+      // Remove bullet if it goes off screen
       if (bullet.offsetTop < 0) {
         bullet.remove();
         clearInterval(interval);
         return;
       }
 
+      // Check collision with enemies
       document.querySelectorAll(".enemy").forEach((enemy) => {
         if (isColliding(bullet, enemy)) {
           play(explosion);
@@ -170,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 30);
   }
 
-  //--------- UTIL ----------//
+  //----- Collision Detection -----
   const isColliding = (a, b) => {
     const r1 = a.getBoundingClientRect();
     const r2 = b.getBoundingClientRect();
@@ -182,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   };
 
-  //--------- MOVEMENT ---------//
+  //----- Player Movement -----
   function gameLoop() {
     if (!isGameRunning) return;
 
@@ -210,10 +221,10 @@ document.addEventListener("DOMContentLoaded", () => {
       player.style.top = `${player.offsetTop + speed}px`;
     }
 
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(gameLoop); // Call every frame
   }
 
-  // frames to road 
+  //----- Background Scrolling -----
   let roadOffset = 0;
 
   function scrollRoad() {
@@ -221,11 +232,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     roadOffset += 20;
     gameArea.style.backgroundPositionY = `${roadOffset}px`;
-
     requestAnimationFrame(scrollRoad);
   }
 
-  //------- FLOW ----//
+  //----- Game Start / End Logic -----
   function startGame() {
     isGameRunning = true;
     startScreen.style.display = "none";
@@ -256,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gameOverScreen.style.display = "flex";
   }
 
-  //--------- CONTROLS ----------//
+  //----- Button Events -----
   startBtn.addEventListener("click", startGame);
   restartBtn.addEventListener("click", () => {
     restartBtn.style.display = "none";
@@ -264,9 +274,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   playAgainBtn.addEventListener("click", startGame);
 
+  //----- Key Controls -----
   document.addEventListener("keydown", (e) => {
     keys[e.key] = true;
-    if (e.key === " ") shoot();
+    if (e.key === " ") shoot(); // Spacebar to shoot
   });
 
   document.addEventListener("keyup", (e) => {
